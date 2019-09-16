@@ -13,6 +13,7 @@ type ParseError
     | ExpectedTwoChars
     | ExpectedElement
     | ExpectedListOfParsers
+    | ExpectedEnd
 
 
 type
@@ -75,20 +76,20 @@ stringToElement str =
             Nothing
 
 
-runParseFormula : String -> Result ParseError Formula
+runParseFormula : String -> Result ( ParseError, String ) Formula
 runParseFormula inputText =
     runParser inputText parseFormula
 
 
 parseFormula : String -> ( Parser Formula, String )
 parseFormula str =
-    parseElement str
+    repeat oneOrMore str parseElement
+        |> ignore parseEnd
         |> map makeFormula
-        |> andMap parseElement
 
 
-andMap : (String -> ( Parser a, String )) -> ( Parser (a -> b), String ) -> ( Parser b, String )
-andMap parseA parseFn =
+keep : (String -> ( Parser a, String )) -> ( Parser (a -> b), String ) -> ( Parser b, String )
+keep parseA parseFn =
     case parseFn of
         ( Fail error, str ) ->
             ( Fail error, str )
@@ -102,13 +103,81 @@ andMap parseA parseFn =
                     ( Success (fn a), newStr )
 
 
-makeFormula : Element -> Element -> Formula
-makeFormula el1 el2 =
-    Formula (el1 :: [ el2 ])
+ignore : (String -> ( Parser a, String )) -> ( Parser b, String ) -> ( Parser b, String )
+ignore parseA parseFn =
+    case parseFn of
+        ( Fail error, str ) ->
+            ( Fail error, str )
+
+        ( Success fn, str ) ->
+            case parseA str of
+                ( Fail error, _ ) ->
+                    ( Fail error, str )
+
+                ( Success _, _ ) ->
+                    ( Success fn, str )
 
 
+makeFormula : List Element -> Formula
+makeFormula elements =
+    Formula elements
 
---|> andMap parseDigit
+
+type Count
+    = AtLeast Int
+    | Exactly Int
+
+
+zeroOrMore : Count
+zeroOrMore =
+    AtLeast 0
+
+
+oneOrMore : Count
+oneOrMore =
+    AtLeast 1
+
+
+repeat : Count -> String -> (String -> ( Parser a, String )) -> ( Parser (List a), String )
+repeat count str parser =
+    case count of
+        AtLeast x ->
+            --try parser at least x times and then until fails
+            case runParserXTimes x [] str parser of
+                ( Success values, unpassedStr ) ->
+                    runParserMaxTimes values unpassedStr parser
+
+                ( Fail error, _ ) ->
+                    ( Fail error, str )
+
+        Exactly x ->
+            --try parser x times
+            runParserXTimes x [] str parser
+
+
+runParserXTimes : Int -> List a -> String -> (String -> ( Parser a, String )) -> ( Parser (List a), String )
+runParserXTimes x successes str parserA =
+    case parserA str of
+        ( Success a, restStr ) ->
+            if x == 1 then
+                ( Success (List.reverse (a :: successes)), restStr )
+
+            else
+                runParserXTimes (x - 1) (a :: successes) restStr parserA
+
+        ( Fail error, _ ) ->
+            ( Fail error, str )
+
+
+runParserMaxTimes : List a -> String -> (String -> ( Parser a, String )) -> ( Parser (List a), String )
+runParserMaxTimes successes str parserA =
+    --TODO
+    case parserA str of
+        ( Success a, restStr ) ->
+            runParserMaxTimes (a :: successes) restStr parserA
+
+        ( Fail error, _ ) ->
+            ( Success (List.reverse successes), str )
 
 
 map : (a -> b) -> ( Parser a, String ) -> ( Parser b, String )
@@ -122,18 +191,28 @@ map fn parserA =
 
 
 succeed : a -> (String -> ( Parser a, String ))
-succeed a =
-    \str -> ( Success a, str )
+succeed a str =
+    ( Success a, str )
 
 
-runParser : String -> (String -> ( Parser a, String )) -> Result ParseError a
+runParser : String -> (String -> ( Parser a, String )) -> Result ( ParseError, String ) a
 runParser inputStr parseFunction =
     case parseFunction inputStr of
         ( Success str, rest ) ->
             Ok str
 
-        ( Fail parseError, _ ) ->
-            Err parseError
+        ( Fail parseError, unpassedStr ) ->
+            Err ( parseError, unpassedStr )
+
+
+parseEnd : String -> ( Parser (), String )
+parseEnd str =
+    case String.uncons str of
+        Nothing ->
+            ( Success (), str )
+
+        Just ( char, rest ) ->
+            ( Fail ExpectedEnd, str )
 
 
 parseChar : String -> ( Parser String, String )

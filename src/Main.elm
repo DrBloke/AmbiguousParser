@@ -36,8 +36,8 @@ update msg model =
 
                     else
                         case runParseFormula inputText of
-                            Err _ ->
-                                "Invalid formula"
+                            Err error ->
+                                "Invalid formula " ++ Debug.toString error
 
                             Ok value ->
                                 Debug.toString value

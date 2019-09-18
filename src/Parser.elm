@@ -14,12 +14,16 @@ type ParseError
     | ExpectedElement
     | ExpectedListOfParsers
     | ExpectedEnd
+    | ExpectedInt
+    | ExpectedEndOfInt
 
 
-type
-    Formula
-    --= Formula ( Element, Int )
-    = Formula (List Element)
+type Formula
+    = Formula (List QuantifiedElement)
+
+
+type QuantifiedElement
+    = QuantifiedElement Element Int
 
 
 type Element
@@ -83,9 +87,63 @@ runParseFormula inputText =
 
 parseFormula : String -> ( Parser Formula, String )
 parseFormula str =
-    repeat oneOrMore str parseElement
+    repeat oneOrMore str parseQuantifiedElement
+        |> map Formula
         |> ignore parseEnd
-        |> map makeFormula
+
+
+parseQuantifiedElement : String -> ( Parser QuantifiedElement, String )
+parseQuantifiedElement str =
+    succeed QuantifiedElement str
+        |> keep parseElement
+        |> keep
+            (oneOf
+                [ parseInt
+                , succeed 1
+                ]
+            )
+
+
+parseInt : String -> ( Parser Int, String )
+parseInt str =
+    repeat oneOrMore str parseDigit
+        |> map concatToInt
+        |> andThen validatePositiveInt
+
+
+validatePositiveInt : Int -> Parser Int
+validatePositiveInt int =
+    --string parsing prevents negative ints
+    --a max int is mainly put in to prevent big int problems
+    if int > 1000 then
+        Fail ExpectedEndOfInt
+
+    else
+        Success int
+
+
+concatToInt : List Int -> Int
+concatToInt ints =
+    joinInts 0 1 (List.reverse ints)
+
+
+joinInts : Int -> Int -> List Int -> Int
+joinInts acc multiplier ints =
+    case ints of
+        [] ->
+            acc
+
+        x :: xs ->
+            joinInts (acc + x * multiplier) (multiplier * 10) xs
+
+
+
+--|> ignore parseEnd
+-- parseFormula : String -> ( Parser Formula, String )
+-- parseFormula str =
+--     repeat oneOrMore str parseElement
+--         |> ignore parseEnd
+--         |> map makeFormula
 
 
 keep : (String -> ( Parser a, String )) -> ( Parser (a -> b), String ) -> ( Parser b, String )
@@ -118,9 +176,9 @@ ignore parseA parseFn =
                     ( Success fn, str )
 
 
-makeFormula : List Element -> Formula
-makeFormula elements =
-    Formula elements
+makeFormula : List QuantifiedElement -> Formula
+makeFormula quantifiedElements =
+    Formula quantifiedElements
 
 
 type Count
@@ -157,13 +215,17 @@ repeat count str parser =
 
 runParserXTimes : Int -> List a -> String -> (String -> ( Parser a, String )) -> ( Parser (List a), String )
 runParserXTimes x successes str parserA =
+    let
+        count =
+            x
+    in
     case parserA str of
         ( Success a, restStr ) ->
-            if x == 1 then
+            if count == 1 then
                 ( Success (List.reverse (a :: successes)), restStr )
 
             else
-                runParserXTimes (x - 1) (a :: successes) restStr parserA
+                runParserXTimes (count - 1) (a :: successes) restStr parserA
 
         ( Fail error, _ ) ->
             ( Fail error, str )
@@ -249,6 +311,22 @@ parseOneLetterElement : String -> ( Parser Element, String )
 parseOneLetterElement str =
     parseChar str
         |> andThen validateElement
+
+
+parseDigit : String -> ( Parser Int, String )
+parseDigit str =
+    parseChar str
+        |> andThen validateDigit
+
+
+validateDigit : String -> Parser Int
+validateDigit str =
+    case String.toInt str of
+        Nothing ->
+            Fail ExpectedInt
+
+        Just int ->
+            Success int
 
 
 parseTwoLetterElement : String -> ( Parser Element, String )

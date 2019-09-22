@@ -35,12 +35,13 @@ update msg model =
                         ""
 
                     else
-                        case runParseFormula inputText of
-                            Err error ->
-                                "Invalid formula " ++ Debug.toString error
-
-                            Ok value ->
-                                Debug.toString value
+                        -- case runParseFormula inputText of
+                        --     Err error ->
+                        --         "Invalid formula " ++ Debug.toString error
+                        --
+                        --     Ok value ->
+                        --         Debug.toString value
+                        Debug.toString (runAmbiguousParseFormula inputText)
             in
             { model | textInput = formula }
 

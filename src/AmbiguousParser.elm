@@ -24,10 +24,10 @@ type Success a
 
 
 runAmbiguousParser : String -> (String -> AmbiguousParser a) -> ( Failures, List a )
-runAmbiguousParser inputText parseFormula =
+runAmbiguousParser inputText parserA =
     let
         (AmbiguousParser failures successes) =
-            parseFormula inputText
+            parserA inputText
     in
     ( failures, List.map (\(Success value _) -> value) successes )
 
@@ -61,7 +61,7 @@ mapAll fn (AmbiguousParser failures successes) =
 anyOf :
     List (String -> AmbiguousParser a)
     -> String
-    -> AmbiguousParser b
+    -> AmbiguousParser a
 anyOf ambiParsers str =
     List.foldl (combAmbi str) (AmbiguousParser [] []) ambiParsers
 
@@ -72,12 +72,11 @@ combAmbi :
     -> AmbiguousParser a
     -> AmbiguousParser a
 combAmbi str ambiParser (AmbiguousParser failures successes) =
-    case ambiParser str of
-        AmbiguousParser [] success ->
-            AmbiguousParser failures (success ++ successes)
-
-        AmbiguousParser failure [] ->
-            AmbiguousParser (failure ++ failures) successes
+    let
+        (AmbiguousParser failure success) =
+            ambiParser str
+    in
+    AmbiguousParser (failure ++ failures) (success ++ successes)
 
 
 ambiKeep :
@@ -93,10 +92,14 @@ foldFns :
     -> Success (a -> b)
     -> AmbiguousParser b
     -> AmbiguousParser b
-foldFns parserA [ Success fn str ] (AmbiguousParser failures successes) =
-    case parserA str of
-        AmbiguousParser [] [ Success value remainStr ] ->
-            AmbiguousParser failures (Success (fn value) :: successes)
-
-        AmbiguousParser failure [] ->
-            AmbiguousParser (failure :: failures) successes
+foldFns parserA (Success fn str) (AmbiguousParser failures successes) =
+    let
+        (AmbiguousParser fails succs) =
+            parserA str
+    in
+    AmbiguousParser (fails ++ failures)
+        (List.map
+            (\(Success value remainStr) -> Success (fn value) remainStr)
+            succs
+            ++ successes
+        )

@@ -72,9 +72,9 @@ runParseFormula inputText =
     runParser inputText parseFormula
 
 
-runAmbiguousParseFormula : String -> List (Result ( ParseError, String ) Formula)
+runAmbiguousParseFormula : String -> ( Failures, List Element )
 runAmbiguousParseFormula inputText =
-    runAmbigousParser inputText parseFormula
+    runAmbiguousParser inputText parseAmbiguousElement
 
 
 parseFormula : String -> ( Parser Formula, String )
@@ -106,6 +106,11 @@ parseElement str =
     oneOf [ parseOneLetterElement, parseTwoLetterElement ] str
 
 
+parseAmbiguousElement : String -> AmbiguousParser Element
+parseAmbiguousElement str =
+    anyOf [ ambiguate parseOneLetterElement, ambiguate parseTwoLetterElement ] str
+
+
 parseOneLetterElement : String -> ( Parser Element, String )
 parseOneLetterElement str =
     parseChar str
@@ -125,4 +130,4 @@ validateElement str =
             Fail ExpectedElement
 
         Just element ->
-            Success element
+            Parser.Success element

@@ -1,7 +1,5 @@
 module Parser exposing (..)
 
-import String.Extra exposing (toTitleCase)
-
 
 type Parser a
     = Fail ParseError
@@ -16,92 +14,6 @@ type ParseError
     | ExpectedEnd
     | ExpectedInt
     | ExpectedEndOfInt
-
-
-type Formula
-    = Formula (List QuantifiedElement)
-
-
-type QuantifiedElement
-    = QuantifiedElement Element Int
-
-
-type Element
-    = H
-    | Li
-    | C
-    | N
-    | O
-    | Na
-    | K
-    | I
-    | Ca
-    | Cl
-    | Co
-
-
-stringToElement : String -> Maybe Element
-stringToElement str =
-    case toTitleCase str of
-        "H" ->
-            Just H
-
-        "C" ->
-            Just C
-
-        "N" ->
-            Just N
-
-        "O" ->
-            Just O
-
-        "K" ->
-            Just K
-
-        "Cl" ->
-            Just Cl
-
-        "I" ->
-            Just I
-
-        "Na" ->
-            Just Na
-
-        "Li" ->
-            Just Li
-
-        "Ca" ->
-            Just Ca
-
-        "Co" ->
-            Just Co
-
-        _ ->
-            Nothing
-
-
-runParseFormula : String -> Result ( ParseError, String ) Formula
-runParseFormula inputText =
-    runParser inputText parseFormula
-
-
-parseFormula : String -> ( Parser Formula, String )
-parseFormula str =
-    repeat oneOrMore str parseQuantifiedElement
-        |> map Formula
-        |> ignore parseEnd
-
-
-parseQuantifiedElement : String -> ( Parser QuantifiedElement, String )
-parseQuantifiedElement str =
-    succeed QuantifiedElement str
-        |> keep parseElement
-        |> keep
-            (oneOf
-                [ parseInt
-                , succeed 1
-                ]
-            )
 
 
 parseInt : String -> ( Parser Int, String )
@@ -137,15 +49,6 @@ joinInts acc multiplier ints =
             joinInts (acc + x * multiplier) (multiplier * 10) xs
 
 
-
---|> ignore parseEnd
--- parseFormula : String -> ( Parser Formula, String )
--- parseFormula str =
---     repeat oneOrMore str parseElement
---         |> ignore parseEnd
---         |> map makeFormula
-
-
 keep : (String -> ( Parser a, String )) -> ( Parser (a -> b), String ) -> ( Parser b, String )
 keep parseA parseFn =
     case parseFn of
@@ -174,11 +77,6 @@ ignore parseA parseFn =
 
                 ( Success _, _ ) ->
                     ( Success fn, str )
-
-
-makeFormula : List QuantifiedElement -> Formula
-makeFormula quantifiedElements =
-    Formula quantifiedElements
 
 
 type Count
@@ -302,17 +200,6 @@ parseTwoChars str =
                     ( Success (inputStr ++ String.fromChar char), rest )
 
 
-parseElement : String -> ( Parser Element, String )
-parseElement str =
-    oneOf [ parseOneLetterElement, parseTwoLetterElement ] str
-
-
-parseOneLetterElement : String -> ( Parser Element, String )
-parseOneLetterElement str =
-    parseChar str
-        |> andThen validateElement
-
-
 parseDigit : String -> ( Parser Int, String )
 parseDigit str =
     parseChar str
@@ -327,22 +214,6 @@ validateDigit str =
 
         Just int ->
             Success int
-
-
-parseTwoLetterElement : String -> ( Parser Element, String )
-parseTwoLetterElement str =
-    parseTwoChars str
-        |> andThen validateElement
-
-
-validateElement : String -> Parser Element
-validateElement str =
-    case stringToElement str of
-        Nothing ->
-            Fail ExpectedElement
-
-        Just element ->
-            Success element
 
 
 oneOf : List (String -> ( Parser a, String )) -> String -> ( Parser a, String )
@@ -375,5 +246,5 @@ andThen fn input =
         ( Fail error, str ) ->
             ( Fail error, str )
 
-        ( Success str, inputStr ) ->
-            ( fn str, inputStr )
+        ( Success a, inputStr ) ->
+            ( fn a, inputStr )

@@ -1,10 +1,10 @@
 module Main exposing (Model, Msg(..), init, main, update, view)
 
 import Browser
+import ChemParser exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onInput)
-import Parser exposing (..)
 
 
 main =

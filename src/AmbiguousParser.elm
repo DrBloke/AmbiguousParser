@@ -84,15 +84,15 @@ ambiKeep :
     -> AmbiguousParser (a -> b)
     -> AmbiguousParser b
 ambiKeep parserA (AmbiguousParser failures successFuncs) =
-    List.foldl (foldFns parserA) (AmbiguousParser failures []) successFuncs
+    List.foldl (foldAndKeepFns parserA) (AmbiguousParser failures []) successFuncs
 
 
-foldFns :
+foldAndKeepFns :
     (String -> AmbiguousParser a)
     -> Success (a -> b)
     -> AmbiguousParser b
     -> AmbiguousParser b
-foldFns parserA (Success fn str) (AmbiguousParser failures successes) =
+foldAndKeepFns parserA (Success fn str) (AmbiguousParser failures successes) =
     let
         (AmbiguousParser fails succs) =
             parserA str
@@ -100,6 +100,32 @@ foldFns parserA (Success fn str) (AmbiguousParser failures successes) =
     AmbiguousParser (fails ++ failures)
         (List.map
             (\(Success value remainStr) -> Success (fn value) remainStr)
+            succs
+            ++ successes
+        )
+
+
+ambiIgnore :
+    (String -> AmbiguousParser a)
+    -> AmbiguousParser b
+    -> AmbiguousParser b
+ambiIgnore parserA (AmbiguousParser failures successValues) =
+    List.foldl (foldAndIgnoreFns parserA) (AmbiguousParser failures []) successValues
+
+
+foldAndIgnoreFns :
+    (String -> AmbiguousParser a)
+    -> Success b
+    -> AmbiguousParser b
+    -> AmbiguousParser b
+foldAndIgnoreFns parserA (Success value str) (AmbiguousParser failures successes) =
+    let
+        (AmbiguousParser fails succs) =
+            parserA str
+    in
+    AmbiguousParser (fails ++ failures)
+        (List.map
+            (\(Success _ remainStr) -> Success value remainStr)
             succs
             ++ successes
         )

@@ -129,3 +129,52 @@ foldAndIgnoreFns parserA (Success value str) (AmbiguousParser failures successes
             succs
             ++ successes
         )
+
+
+
+--TODO
+
+
+ambiRepeat : Count -> String -> (String -> AmbiguousParser a) -> AmbiguousParser (List a)
+ambiRepeat count str ambiParser =
+    case count of
+        AtLeast x ->
+            --try parser at least x times and then until fails
+            case runAmbiParserXTimes x [] str ambiParser of
+                AmbiguousParser [] [ Success succs unpassedStr ] ->
+                    runAmbiParserMaxTimes succs unpassedStr ambiParser
+
+                AmbiguousParser failures successes ->
+                    AmbiguousParser failures successes
+
+        Exactly x ->
+            --try parser x times
+            runAmbiParserXTimes x [] str ambiParser
+
+
+runAmbiParserXTimes : Int -> List a -> String -> (String -> AmbiguousParser a) -> AmbiguousParser (List a)
+runAmbiParserXTimes x successes str ambiParserA =
+    let
+        count =
+            x
+    in
+    case ambiParserA str of
+        AmbiguousParser [] [ Success succs restStr ] ->
+            if count == 1 then
+                AmbiguousParser [] [ Success (List.reverse (succs :: successes)) restStr ]
+
+            else
+                runAmbiParserXTimes (count - 1) (succs :: successes) restStr ambiParserA
+
+        AmbiguousParser failures _ ->
+            AmbiguousParser failures [ Success successes str ]
+
+
+runAmbiParserMaxTimes : List a -> String -> (String -> AmbiguousParser a) -> AmbiguousParser (List a)
+runAmbiParserMaxTimes successes str ambiParserA =
+    case ambiParserA str of
+        AmbiguousParser [] [ Success succs restStr ] ->
+            runAmbiParserMaxTimes (succs :: successes) restStr ambiParserA
+
+        AmbiguousParser failures succs ->
+            AmbiguousParser failures [ Success (List.reverse successes) str ]

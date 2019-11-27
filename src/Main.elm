@@ -41,6 +41,7 @@ update msg model =
                         --
                         --     Ok value ->
                         --         Debug.toString value
+                        --  Debug.toString (runParseFormula inputText)
                         Debug.toString (runAmbiguousParseFormula inputText)
             in
             { model | textInput = formula }

@@ -131,7 +131,6 @@ runParserXTimes x successes str parserA =
 
 runParserMaxTimes : List a -> String -> (String -> ( Parser a, String )) -> ( Parser (List a), String )
 runParserMaxTimes successes str parserA =
-    --TODO
     case parserA str of
         ( Success a, restStr ) ->
             runParserMaxTimes (a :: successes) restStr parserA

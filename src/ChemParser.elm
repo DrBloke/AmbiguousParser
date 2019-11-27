@@ -72,9 +72,14 @@ runParseFormula inputText =
     runParser inputText parseFormula
 
 
-runAmbiguousParseFormula : String -> ( Failures, List Element )
+runAmbiguousParseFormula : String -> ( Failures, List (List Element) )
 runAmbiguousParseFormula inputText =
-    runAmbiguousParser inputText parseAmbiguousElement
+    runAmbiguousParser inputText parseAmbiguousFormula
+
+
+parseAmbiguousFormula : String -> AmbiguousParser (List Element)
+parseAmbiguousFormula str =
+    ambiRepeat oneOrMore str parseAmbiguousElement
 
 
 parseFormula : String -> ( Parser Formula, String )
@@ -103,7 +108,7 @@ makeFormula quantifiedElements =
 
 parseElement : String -> ( Parser Element, String )
 parseElement str =
-    oneOf [ parseOneLetterElement, parseTwoLetterElement ] str
+    oneOf [ parseTwoLetterElement, parseOneLetterElement ] str
 
 
 parseAmbiguousElement : String -> AmbiguousParser Element
